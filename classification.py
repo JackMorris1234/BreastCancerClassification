@@ -91,10 +91,6 @@ models = {
 
 #cross-validate models and print results
 
-# ----------------------------------------------------------
-# 6. K-FOLD CROSS VALIDATION + BEST-MODEL SELECTION
-# ----------------------------------------------------------
-
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
 
 model_scores = {}  # stores model -> ROC-AUC
@@ -121,9 +117,7 @@ for name, model in models.items():
     # Store mean ROC-AUC score
     model_scores[name] = scores["test_roc_auc"].mean()
 
-# ----------------------------------------------------------
-# 7. SELECT BEST MODEL BASED ON ROC-AUC
-# ----------------------------------------------------------
+#select best model based on ROC-AUC
 
 best_model_name = max(model_scores, key=model_scores.get)
 best_model = models[best_model_name]
@@ -156,6 +150,8 @@ def predict_malignancy(input_values):
     input_values must follow the order of cleaned_features
     """
     arr = np.array(input_values).reshape(1, -1)
+
+    #scales entered values and predicts malignancy
     arr_scaled = scaler.transform(arr)
     prob = final_model.predict_proba(arr_scaled)[0][1]
     predicted = final_model.predict(arr_scaled)[0]
@@ -179,10 +175,7 @@ print("\nThese are the EXACT attributes users must provide.\n")
 #creates a manual prompt for user input
 
 def prompt_user_for_prediction():
-    """
-    Prompts a user to enter feature values in the correct order
-    and returns a malignancy prediction.
-    """
+    
     print("\nEnter feature values for a new sample:")
     print("(Press Enter to use the same order shown above.)\n")
 
