@@ -20,7 +20,7 @@ from sklearn.metrics import (
 df = pd.read_csv("Data/Data.csv")   # <-- replace with your CSV filename
 
 # Drop ID column
-df = df.drop(columns=["id"], errors="ignore")
+df = df.drop(columns=["ID"], errors="ignore")
 
 # Encode labels: M=1, B=0
 df["Diagnosis"] = df["Diagnosis"].map({"M": 1, "B": 0})
