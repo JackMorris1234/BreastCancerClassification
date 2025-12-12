@@ -91,9 +91,14 @@ models = {
 
 #cross-validate models and print results
 
+# ----------------------------------------------------------
+# 6. K-FOLD CROSS VALIDATION + BEST-MODEL SELECTION
+# ----------------------------------------------------------
+
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
 
-#iterate through models and evaluate
+model_scores = {}  # stores model -> ROC-AUC
+
 for name, model in models.items():
     print("\n==============================")
     print(f"Model: {name}")
@@ -113,27 +118,39 @@ for name, model in models.items():
     print(f"F1 Score:       {scores['test_f1'].mean():.4f}")
     print(f"ROC-AUC:        {scores['test_roc_auc'].mean():.4f}")
 
+    # Store mean ROC-AUC score
+    model_scores[name] = scores["test_roc_auc"].mean()
 
-#fit the final model
-final_model = SVC(probability=True, kernel="rbf")
-final_model.fit(X_train_scaled, y_train)
+# ----------------------------------------------------------
+# 7. SELECT BEST MODEL BASED ON ROC-AUC
+# ----------------------------------------------------------
 
+best_model_name = max(model_scores, key=model_scores.get)
+best_model = models[best_model_name]
+
+print("\n===============================================")
+print(f"BEST MODEL SELECTED (via K-Fold ROC-AUC): {best_model_name}")
+print("===============================================\n")
+
+# Fit the best model on full training split
+best_model.fit(X_train_scaled, y_train)
+
+# Replace final_model so GUI uses best model
+final_model = best_model
+
+# Evaluate on test set
 y_pred = final_model.predict(X_test_scaled)
 y_prob = final_model.predict_proba(X_test_scaled)[:, 1]
 
-print("\n\n==============================")
-print("FINAL MODEL TEST SET RESULTS")
-print("==============================")
+print("=========== TEST SET PERFORMANCE ===========")
 print(f"Accuracy:      {accuracy_score(y_test, y_pred):.4f}")
 print(f"Precision:     {precision_score(y_test, y_pred):.4f}")
 print(f"Recall:        {recall_score(y_test, y_pred):.4f}")
 print(f"F1 Score:      {f1_score(y_test, y_pred):.4f}")
 print(f"ROC-AUC:       {roc_auc_score(y_test, y_prob):.4f}")
+print("=============================================")
 
-# ----------------------------------------------------------
-# 10. FUNCTION FOR FINAL PRODUCT
-# ----------------------------------------------------------
-
+#function to predict malignancy based on user input
 def predict_malignancy(input_values):
     """
     input_values must follow the order of cleaned_features
@@ -145,3 +162,48 @@ def predict_malignancy(input_values):
 
     label = "Malignant" if predicted == 1 else "Benign"
     return label, round(prob * 100, 2)
+
+
+#shows the features required for manual entry
+
+print("\n====================================================")
+print("FEATURES REQUIRED FOR MANUAL ENTRY (IN THIS ORDER):")
+print("====================================================")
+
+for i, feat in enumerate(cleaned_features):
+    print(f"{i+1}. {feat}")
+
+print("\nThese are the EXACT attributes users must provide.\n")
+
+
+#creates a manual prompt for user input
+
+def prompt_user_for_prediction():
+    """
+    Prompts a user to enter feature values in the correct order
+    and returns a malignancy prediction.
+    """
+    print("\nEnter feature values for a new sample:")
+    print("(Press Enter to use the same order shown above.)\n")
+
+    user_values = []
+
+    for feat in cleaned_features:
+        while True:
+            try:
+                val = float(input(f"Enter value for {feat}: "))
+                user_values.append(val)
+                break
+            except ValueError:
+                print("Invalid input. Please enter a numeric value.")
+
+    label, prob = predict_malignancy(user_values)
+
+    print("\n================ PREDICTION RESULT ================")
+    print(f"Diagnosis: {label}")
+    print(f"Probability of Malignancy: {prob}%")
+    print("====================================================\n")
+
+
+#actually runs the prompt
+prompt_user_for_prediction()
