@@ -34,10 +34,7 @@ print("Initial Selected Features:", selected_features)
 #remove redundant features based on inter-feature correlation, if correlation > 0.9, drop one with lower correlation to target
 
 def remove_redundant_features(df, features, threshold=0.90):
-    """
-    Removes features that are highly correlated with each other.
-    Keeps the feature with stronger correlation to the target.
-    """
+    #
     corr = df[features].corr().abs()
 
     #features to remove
@@ -146,9 +143,7 @@ print("=============================================")
 
 #function to predict malignancy based on user input
 def predict_malignancy(input_values):
-    """
-    input_values must follow the order of cleaned_features
-    """
+    #convert input to numpy array and reshape for single sample
     arr = np.array(input_values).reshape(1, -1)
 
     #scales entered values and predicts malignancy
