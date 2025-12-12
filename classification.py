@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 import sklearn
@@ -13,54 +12,76 @@ from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 )
 
-# ----------------------------------------------------------
-# 1. LOAD DATA
-# ----------------------------------------------------------
 
-df = pd.read_csv("Data/Data.csv")   # <-- replace with your CSV filename
+df = pd.read_csv("Data/Data.csv")
 
-# Drop ID column
+#drop ID column
 df = df.drop(columns=["ID"], errors="ignore")
 
-# Encode labels: M=1, B=0
+#encode labels: M=1, B=0
 df["Diagnosis"] = df["Diagnosis"].map({"M": 1, "B": 0})
 
-# ----------------------------------------------------------
-# 2. OPTIONAL: FEATURE SELECTION (CORR >= 0.30 WITH TARGET)
-# ----------------------------------------------------------
+#feature selection based on correlation with target, if correlation < 0.3, drop feature
 
 corr_matrix = df.corr(numeric_only=True)
 corr_with_target = corr_matrix["Diagnosis"].abs()
 
 selected_features = corr_with_target[corr_with_target >= 0.3].index.tolist()
-
-# Remove "Diagnosis" from feature list
 selected_features = [c for c in selected_features if c != "Diagnosis"]
 
-X = df[selected_features]
+print("Initial Selected Features:", selected_features)
+
+#remove redundant features based on inter-feature correlation, if correlation > 0.9, drop one with lower correlation to target
+
+def remove_redundant_features(df, features, threshold=0.90):
+    """
+    Removes features that are highly correlated with each other.
+    Keeps the feature with stronger correlation to the target.
+    """
+    corr = df[features].corr().abs()
+
+    #features to remove
+    to_remove = set()
+
+    for i in range(len(features)):
+        for j in range(i + 1, len(features)):
+            f1, f2 = features[i], features[j]
+
+            #if two features are highly correlated
+            if corr.loc[f1, f2] >= threshold:
+                #remove the one less correlated with target
+                if corr_with_target[f1] >= corr_with_target[f2]:
+                    to_remove.add(f2)
+                else:
+                    to_remove.add(f1)
+
+    # Final feature list
+    cleaned = [f for f in features if f not in to_remove]
+    return cleaned, list(to_remove)
+
+cleaned_features, removed = remove_redundant_features(df, selected_features)
+
+print("\nRemoved Redundant Features:", removed)
+print("Final Feature Set:", cleaned_features)
+
+#seperate X and y, x being features, y being target
+
+X = df[cleaned_features]
 y = df["Diagnosis"]
 
-print("Selected Features:", selected_features)
-
-# ----------------------------------------------------------
-# 3. TRAIN–TEST SPLIT
-# ----------------------------------------------------------
+#split data into train and test sets
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
 
-# ----------------------------------------------------------
-# 4. SCALING
-# ----------------------------------------------------------
+#scale features so that models perform better
 
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-# ----------------------------------------------------------
-# 5. DEFINE MODELS
-# ----------------------------------------------------------
+#define models to evaluate
 
 models = {
     "Logistic Regression": LogisticRegression(max_iter=500),
@@ -68,12 +89,11 @@ models = {
     "Random Forest": RandomForestClassifier(n_estimators=300, random_state=42)
 }
 
-# ----------------------------------------------------------
-# 6. K-FOLD CROSS VALIDATION
-# ----------------------------------------------------------
+#cross-validate models and print results
 
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
 
+#iterate through models and evaluate
 for name, model in models.items():
     print("\n==============================")
     print(f"Model: {name}")
@@ -93,11 +113,9 @@ for name, model in models.items():
     print(f"F1 Score:       {scores['test_f1'].mean():.4f}")
     print(f"ROC-AUC:        {scores['test_roc_auc'].mean():.4f}")
 
-# ----------------------------------------------------------
-# 7. FIT FINAL MODEL (CHOOSE BEST PERFORMER)
-# ----------------------------------------------------------
 
-final_model = SVC(probability=True, kernel="rbf")  # or logistic / RF
+#fit the final model
+final_model = SVC(probability=True, kernel="rbf")
 final_model.fit(X_train_scaled, y_train)
 
 y_pred = final_model.predict(X_test_scaled)
@@ -113,13 +131,12 @@ print(f"F1 Score:      {f1_score(y_test, y_pred):.4f}")
 print(f"ROC-AUC:       {roc_auc_score(y_test, y_prob):.4f}")
 
 # ----------------------------------------------------------
-# 8. HOW TO USE MODEL IN FINAL PRODUCT
+# 10. FUNCTION FOR FINAL PRODUCT
 # ----------------------------------------------------------
 
 def predict_malignancy(input_values):
     """
-    input_values = list of features in SAME ORDER as selected_features
-    Example: [mean_radius, mean_texture, mean_smoothness, ...]
+    input_values must follow the order of cleaned_features
     """
     arr = np.array(input_values).reshape(1, -1)
     arr_scaled = scaler.transform(arr)
